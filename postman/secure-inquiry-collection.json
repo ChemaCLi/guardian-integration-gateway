@@ -1,0 +1,972 @@
+{
+  "info": {
+    "_postman_id": "secure-inquiry-endpoint",
+    "name": "Guardian Integration Gateway - Secure Inquiry",
+    "description": "QA test collection for POST /secure-inquiry endpoint.\n\nTests cover:\n- Request validation (400 errors)\n- PII sanitization (email, SSN, credit card)\n- Success responses\n- Audit log verification",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET /health - Control Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Basic health check to verify server is running."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has status ok', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Valid Requests - Success Path",
+      "item": [
+        {
+          "name": "1.1 Basic valid request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-123\",\n  \"message\": \"Hello, how are you?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Valid request with userId and message. Should return 200 with answer."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has answer field', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('answer');",
+                  "    pm.expect(jsonData.answer).to.eql('Generated Answer');",
+                  "});",
+                  "",
+                  "pm.test('Response time is around 2 seconds (mock delay)', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(1900);",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Valid request - no PII (unchanged)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-456\",\n  \"message\": \"What is the weather today?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Message without PII should remain unchanged in audit log."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has answer', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.answer).to.eql('Generated Answer');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Request Validation - 400 Errors",
+      "item": [
+        {
+          "name": "2.1 Missing userId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Request without userId should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error message mentions userId', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('userId');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Empty userId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"\",\n  \"message\": \"Hello\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Empty userId should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error mentions empty', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('empty');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Missing message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Request without message should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error message mentions message', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Empty message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-123\",\n  \"message\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Empty message should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error mentions empty', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('empty');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 Whitespace-only userId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"   \",\n  \"message\": \"Hello\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Whitespace-only userId should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.6 Whitespace-only message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-123\",\n  \"message\": \"   \"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Whitespace-only message should return 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Email Redaction",
+      "item": [
+        {
+          "name": "3.1 Single email address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"email-test-1\",\n  \"message\": \"Contact me at john.doe@example.com please\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Email should be replaced with <REDACTED: EMAIL> in audit log.\n\nVerify in audit-log.json:\nsanitizedMessage = \"Contact me at <REDACTED: EMAIL> please\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has answer', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.answer).to.eql('Generated Answer');",
+                  "});",
+                  "",
+                  "// Note: Verify audit-log.json manually for sanitizedMessage"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Multiple email addresses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"email-test-2\",\n  \"message\": \"Email alice@test.com or bob@company.org for help\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Both emails should be replaced with <REDACTED: EMAIL>.\n\nVerify in audit-log.json:\nsanitizedMessage = \"Email <REDACTED: EMAIL> or <REDACTED: EMAIL> for help\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Complex email format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"email-test-3\",\n  \"message\": \"Send to user.name+tag@subdomain.example.co.uk\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Complex email formats should also be detected and redacted."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. SSN Redaction",
+      "item": [
+        {
+          "name": "4.1 Nine consecutive digits (SSN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"ssn-test-1\",\n  \"message\": \"My SSN is 123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "9 consecutive digits should be replaced with <REDACTED: SSN>.\n\nVerify in audit-log.json:\nsanitizedMessage = \"My SSN is <REDACTED: SSN>\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Eight digits - NOT redacted as SSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"ssn-test-2\",\n  \"message\": \"Reference number 12345678\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "8 digits should NOT be redacted as SSN.\n\nVerify in audit-log.json:\nsanitizedMessage = \"Reference number 12345678\" (unchanged)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Ten digits - NOT redacted as SSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"ssn-test-3\",\n  \"message\": \"Phone 1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "10 digits should NOT be redacted as SSN.\n\nVerify: \"1234567890\" remains unchanged"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Credit Card Redaction",
+      "item": [
+        {
+          "name": "5.1 Valid Visa card (Luhn valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"cc-test-1\",\n  \"message\": \"My card is 4532015112830366\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Valid Luhn credit card should be replaced with <REDACTED: CREDIT_CARD>.\n\n4532015112830366 is a valid Visa test number.\n\nVerify in audit-log.json:\nsanitizedMessage = \"My card is <REDACTED: CREDIT_CARD>\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Valid MasterCard (Luhn valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"cc-test-2\",\n  \"message\": \"Pay with 5425233430109903\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Valid MasterCard test number.\n\nVerify: Redacted as <REDACTED: CREDIT_CARD>"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Invalid Luhn - NOT redacted as CC",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"cc-test-3\",\n  \"message\": \"Reference 1234567890123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "1234567890123456 fails Luhn validation.\n\nVerify: Should NOT be redacted as <REDACTED: CREDIT_CARD>"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Valid Amex (15 digits)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"cc-test-4\",\n  \"message\": \"Amex card 371449635398431\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Valid Amex test number (15 digits).\n\nVerify: Redacted as <REDACTED: CREDIT_CARD>"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Multiple PII Types",
+      "item": [
+        {
+          "name": "6.1 Email + SSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"multi-pii-1\",\n  \"message\": \"Email user@test.com SSN 123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Both email and SSN should be redacted.\n\nVerify in audit-log.json:\nsanitizedMessage = \"Email <REDACTED: EMAIL> SSN <REDACTED: SSN>\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Email + Credit Card + SSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"multi-pii-2\",\n  \"message\": \"Contact jane@email.com, card 4532015112830366, SSN 987654321\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "All three PII types should be redacted.\n\nVerify in audit-log.json:\nsanitizedMessage = \"Contact <REDACTED: EMAIL>, card <REDACTED: CREDIT_CARD>, SSN <REDACTED: SSN>\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Multiple of each type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"multi-pii-3\",\n  \"message\": \"Emails: a@b.com and c@d.com. SSNs: 111111111 and 222222222. Cards: 4532015112830366 and 5425233430109903.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Multiple instances of each PII type should all be redacted."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Audit Log Verification",
+      "item": [
+        {
+          "name": "7.1 Verify encrypted original message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"audit-test-1\",\n  \"message\": \"Secret message with email secret@test.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "After this request, verify in audit-log.json:\n\n1. userId = \"audit-test-1\"\n2. timestamp is ISO 8601 format\n3. originalMessageEncrypted is hex string (format: iv:ciphertext)\n4. sanitizedMessage = \"Secret message with email <REDACTED: EMAIL>\""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Manual verification required in audit-log.json"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Response Time",
+      "item": [
+        {
+          "name": "8.1 Verify ~2 second delay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"timing-test\",\n  \"message\": \"Test message for timing\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/secure-inquiry",
+              "host": ["{{baseUrl}}"],
+              "path": ["secure-inquiry"]
+            },
+            "description": "Mock AI has 2-second delay. Response should take ~2 seconds."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response time is ~2 seconds', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(1900);",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
