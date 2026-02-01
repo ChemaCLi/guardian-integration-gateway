@@ -1,24 +1,22 @@
 /**
- * AI Factory — Returns the configured AI adapter
+ * AI Factory — Returns the configured AI adapter instance
  *
  * Single point to swap between mock and real AI providers.
- * Currently returns the mock AI adapter for development.
+ * Currently returns an instance of the mock AI adapter for development.
  */
 
-const mockAIAdapter = require('./adapters/mockAI.adapter');
+const { MockAIAdapter } = require('./adapters/mockAI.adapter');
 
 /**
  * Gets the configured AI adapter instance.
  *
- * The adapter implements the AI port contract:
+ * The adapter extends AIPort and implements:
  * - generateAnswer(sanitizedMessage: string): Promise<string>
  *
- * @returns {Object} AI adapter with generateAnswer method
+ * @returns {AIPort} AI adapter instance (e.g. MockAIAdapter)
  */
 function getAIAdapter() {
-  // For now, always return the mock adapter
-  // In the future, this can check config/env to return a real provider
-  return mockAIAdapter;
+  return new MockAIAdapter();
 }
 
 module.exports = {

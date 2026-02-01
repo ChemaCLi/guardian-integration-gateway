@@ -6,13 +6,18 @@
  */
 
 const {
-  generateAnswer,
+  MockAIAdapter,
   RESPONSE_DELAY_MS,
   DEFAULT_RESPONSE,
 } = require('../mockAI.adapter');
 
 describe('mockAI.adapter', () => {
-  // Use fake timers to avoid waiting 2 seconds per test
+  let adapter;
+
+  beforeEach(() => {
+    adapter = new MockAIAdapter();
+  });
+
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -34,14 +39,13 @@ describe('mockAI.adapter', () => {
   describe('generateAnswer', () => {
     describe('return value', () => {
       it('should return a Promise', () => {
-        const result = generateAnswer('test message');
+        const result = adapter.generateAnswer('test message');
         expect(result).toBeInstanceOf(Promise);
       });
 
       it('should resolve to "Generated Answer"', async () => {
-        const resultPromise = generateAnswer('test message');
+        const resultPromise = adapter.generateAnswer('test message');
 
-        // Advance timers to resolve the promise
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
         const result = await resultPromise;
@@ -58,7 +62,7 @@ describe('mockAI.adapter', () => {
         ];
 
         for (const input of inputs) {
-          const resultPromise = generateAnswer(input);
+          const resultPromise = adapter.generateAnswer(input);
           jest.advanceTimersByTime(RESPONSE_DELAY_MS);
           const result = await resultPromise;
           expect(result).toBe(DEFAULT_RESPONSE);
@@ -69,19 +73,16 @@ describe('mockAI.adapter', () => {
     describe('delay behavior', () => {
       it('should not resolve before RESPONSE_DELAY_MS', async () => {
         let resolved = false;
-        const resultPromise = generateAnswer('test').then(() => {
+        const resultPromise = adapter.generateAnswer('test').then(() => {
           resolved = true;
         });
 
-        // Advance time just before the delay
         jest.advanceTimersByTime(RESPONSE_DELAY_MS - 1);
 
-        // Let any pending promises settle
         await Promise.resolve();
 
         expect(resolved).toBe(false);
 
-        // Now advance past the delay
         jest.advanceTimersByTime(1);
         await resultPromise;
 
@@ -89,9 +90,8 @@ describe('mockAI.adapter', () => {
       });
 
       it('should resolve after exactly RESPONSE_DELAY_MS (2000ms)', async () => {
-        const resultPromise = generateAnswer('test message');
+        const resultPromise = adapter.generateAnswer('test message');
 
-        // Advance exactly 2000ms
         jest.advanceTimersByTime(2000);
 
         const result = await resultPromise;
@@ -100,13 +100,12 @@ describe('mockAI.adapter', () => {
 
       it('should resolve after advancing timers by RESPONSE_DELAY_MS', async () => {
         const startTime = Date.now();
-        const resultPromise = generateAnswer('test');
+        const resultPromise = adapter.generateAnswer('test');
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
         await resultPromise;
 
-        // With fake timers, Date.now() also advances
         const elapsed = Date.now() - startTime;
         expect(elapsed).toBe(RESPONSE_DELAY_MS);
       });
@@ -114,7 +113,7 @@ describe('mockAI.adapter', () => {
 
     describe('edge cases', () => {
       it('should handle empty string input', async () => {
-        const resultPromise = generateAnswer('');
+        const resultPromise = adapter.generateAnswer('');
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
@@ -123,7 +122,7 @@ describe('mockAI.adapter', () => {
       });
 
       it('should handle undefined input', async () => {
-        const resultPromise = generateAnswer(undefined);
+        const resultPromise = adapter.generateAnswer(undefined);
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
@@ -132,7 +131,7 @@ describe('mockAI.adapter', () => {
       });
 
       it('should handle null input', async () => {
-        const resultPromise = generateAnswer(null);
+        const resultPromise = adapter.generateAnswer(null);
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
@@ -141,7 +140,7 @@ describe('mockAI.adapter', () => {
       });
 
       it('should handle non-string input (number)', async () => {
-        const resultPromise = generateAnswer(12345);
+        const resultPromise = adapter.generateAnswer(12345);
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
@@ -150,7 +149,7 @@ describe('mockAI.adapter', () => {
       });
 
       it('should handle non-string input (object)', async () => {
-        const resultPromise = generateAnswer({ message: 'test' });
+        const resultPromise = adapter.generateAnswer({ message: 'test' });
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 
@@ -161,9 +160,9 @@ describe('mockAI.adapter', () => {
 
     describe('concurrent calls', () => {
       it('should handle multiple concurrent calls independently', async () => {
-        const promise1 = generateAnswer('message 1');
-        const promise2 = generateAnswer('message 2');
-        const promise3 = generateAnswer('message 3');
+        const promise1 = adapter.generateAnswer('message 1');
+        const promise2 = adapter.generateAnswer('message 2');
+        const promise3 = adapter.generateAnswer('message 3');
 
         jest.advanceTimersByTime(RESPONSE_DELAY_MS);
 

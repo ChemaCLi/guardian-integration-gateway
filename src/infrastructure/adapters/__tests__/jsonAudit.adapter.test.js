@@ -1,60 +1,50 @@
 /**
  * Unit tests for JSON Audit Adapter
  *
- * Tests the saveAudit, ensureFileExists, readAuditLog, and getAuditLogPath functions.
+ * Tests the saveAudit, ensureFileExists, readAuditLog, and getAuditLogPath methods.
  * Uses mocked fs module for isolated testing.
  */
 
+jest.mock('fs', () => ({
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  mkdirSync: jest.fn(),
+}));
+
 const fs = require('fs');
-const path = require('path');
-
-// Mock fs module
-jest.mock('fs');
-
-// Import adapter after mocking fs
-const {
-  saveAudit,
-  getAuditLogPath,
-  ensureFileExists,
-  readAuditLog,
-} = require('../jsonAudit.adapter');
+const { JsonAuditAdapter } = require('../jsonAudit.adapter');
 
 describe('jsonAudit.adapter', () => {
+  let adapter;
+
   beforeEach(() => {
-    // Reset all mocks before each test (clears calls AND implementations)
+    adapter = new JsonAuditAdapter();
     jest.resetAllMocks();
   });
 
-  // =============================================
-  // getAuditLogPath tests
-  // =============================================
   describe('getAuditLogPath', () => {
     it('should return a string path', () => {
-      const result = getAuditLogPath();
+      const result = adapter.getAuditLogPath();
 
       expect(typeof result).toBe('string');
     });
 
     it('should return a path ending with "audit-log.json"', () => {
-      const result = getAuditLogPath();
+      const result = adapter.getAuditLogPath();
 
       expect(result.endsWith('audit-log.json')).toBe(true);
     });
   });
 
-  // =============================================
-  // ensureFileExists tests
-  // =============================================
   describe('ensureFileExists', () => {
     it('should create the file if it does not exist', () => {
-      // Directory exists, file does not
       fs.existsSync.mockImplementation((p) => {
-        // File path ends with audit-log.json
-        if (p.endsWith('audit-log.json')) return false; // file does not exist
-        return true; // directory exists
+        if (p.endsWith('audit-log.json')) return false;
+        return true;
       });
 
-      ensureFileExists();
+      adapter.ensureFileExists();
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.stringContaining('audit-log.json'),
@@ -66,9 +56,8 @@ describe('jsonAudit.adapter', () => {
     it('should create an empty array in the file initially', () => {
       fs.existsSync.mockReturnValue(false);
 
-      ensureFileExists();
+      adapter.ensureFileExists();
 
-      // Check the content written is an empty JSON array
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.any(String),
         '[]',
@@ -79,7 +68,7 @@ describe('jsonAudit.adapter', () => {
     it('should create the directory if it does not exist', () => {
       fs.existsSync.mockReturnValue(false);
 
-      ensureFileExists();
+      adapter.ensureFileExists();
 
       expect(fs.mkdirSync).toHaveBeenCalledWith(
         expect.any(String),
@@ -90,15 +79,12 @@ describe('jsonAudit.adapter', () => {
     it('should not create file if it already exists', () => {
       fs.existsSync.mockReturnValue(true);
 
-      ensureFileExists();
+      adapter.ensureFileExists();
 
       expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
   });
 
-  // =============================================
-  // readAuditLog tests
-  // =============================================
   describe('readAuditLog', () => {
     it('should return an array of entries', () => {
       const mockEntries = [
@@ -113,7 +99,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue(JSON.stringify(mockEntries));
 
-      const result = readAuditLog();
+      const result = adapter.readAuditLog();
 
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual(mockEntries);
@@ -123,7 +109,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      const result = readAuditLog();
+      const result = adapter.readAuditLog();
 
       expect(result).toEqual([]);
     });
@@ -132,26 +118,21 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('{ invalid json content');
 
-      const result = readAuditLog();
+      const result = adapter.readAuditLog();
 
       expect(result).toEqual([]);
     });
 
     it('should call ensureFileExists before reading', () => {
-      // First call checks directory, second checks file
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      readAuditLog();
+      adapter.readAuditLog();
 
-      // ensureFileExists calls existsSync
       expect(fs.existsSync).toHaveBeenCalled();
     });
   });
 
-  // =============================================
-  // saveAudit - appending entries
-  // =============================================
   describe('saveAudit - appending entries', () => {
     const mockEntry = {
       userId: 'user-123',
@@ -166,7 +147,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue(JSON.stringify(existingEntries));
 
-      await saveAudit(mockEntry);
+      await adapter.saveAudit(mockEntry);
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.stringContaining('audit-log.json'),
@@ -179,7 +160,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      const result = saveAudit(mockEntry);
+      const result = adapter.saveAudit(mockEntry);
 
       expect(result).toBeInstanceOf(Promise);
       await expect(result).resolves.toBeUndefined();
@@ -196,7 +177,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue(JSON.stringify([existingEntry]));
 
-      await saveAudit(mockEntry);
+      await adapter.saveAudit(mockEntry);
 
       const writtenContent = fs.writeFileSync.mock.calls[0][1];
       const parsedContent = JSON.parse(writtenContent);
@@ -219,9 +200,9 @@ describe('jsonAudit.adapter', () => {
         currentEntries = JSON.parse(content);
       });
 
-      await saveAudit(entry1);
-      await saveAudit(entry2);
-      await saveAudit(entry3);
+      await adapter.saveAudit(entry1);
+      await adapter.saveAudit(entry2);
+      await adapter.saveAudit(entry3);
 
       expect(currentEntries).toHaveLength(3);
       expect(currentEntries[0].userId).toBe('user-1');
@@ -236,26 +217,26 @@ describe('jsonAudit.adapter', () => {
         throw new Error('Write permission denied');
       });
 
-      await expect(saveAudit(mockEntry)).rejects.toThrow('Write permission denied');
+      await expect(adapter.saveAudit(mockEntry)).rejects.toThrow(
+        'Write permission denied'
+      );
     });
   });
 
-  // =============================================
-  // saveAudit - entry structure
-  // =============================================
   describe('saveAudit - entry structure', () => {
     it('should preserve all entry fields (userId, timestamp, originalMessageEncrypted, sanitizedMessage)', async () => {
       const fullEntry = {
         userId: 'user-456',
         timestamp: '2026-01-31T14:30:00.000Z',
         originalMessageEncrypted: 'aes-256-encrypted-content-here',
-        sanitizedMessage: 'Contact me at <REDACTED: EMAIL> with card <REDACTED: CREDIT_CARD>',
+        sanitizedMessage:
+          'Contact me at <REDACTED: EMAIL> with card <REDACTED: CREDIT_CARD>',
       };
 
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      await saveAudit(fullEntry);
+      await adapter.saveAudit(fullEntry);
 
       const writtenContent = fs.writeFileSync.mock.calls[0][1];
       const parsedContent = JSON.parse(writtenContent);
@@ -263,7 +244,9 @@ describe('jsonAudit.adapter', () => {
 
       expect(savedEntry.userId).toBe(fullEntry.userId);
       expect(savedEntry.timestamp).toBe(fullEntry.timestamp);
-      expect(savedEntry.originalMessageEncrypted).toBe(fullEntry.originalMessageEncrypted);
+      expect(savedEntry.originalMessageEncrypted).toBe(
+        fullEntry.originalMessageEncrypted
+      );
       expect(savedEntry.sanitizedMessage).toBe(fullEntry.sanitizedMessage);
     });
 
@@ -272,18 +255,21 @@ describe('jsonAudit.adapter', () => {
         userId: 'user-special',
         timestamp: '2026-01-31T15:00:00.000Z',
         originalMessageEncrypted: 'encrypted',
-        sanitizedMessage: 'Message with "quotes", \'apostrophes\', and unicode: café 日本語',
+        sanitizedMessage:
+          'Message with "quotes", \'apostrophes\', and unicode: café 日本語',
       };
 
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      await saveAudit(entryWithSpecialChars);
+      await adapter.saveAudit(entryWithSpecialChars);
 
       const writtenContent = fs.writeFileSync.mock.calls[0][1];
       const parsedContent = JSON.parse(writtenContent);
 
-      expect(parsedContent[0].sanitizedMessage).toBe(entryWithSpecialChars.sanitizedMessage);
+      expect(parsedContent[0].sanitizedMessage).toBe(
+        entryWithSpecialChars.sanitizedMessage
+      );
     });
 
     it('should preserve additional fields if present', async () => {
@@ -298,7 +284,7 @@ describe('jsonAudit.adapter', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('[]');
 
-      await saveAudit(extendedEntry);
+      await adapter.saveAudit(extendedEntry);
 
       const writtenContent = fs.writeFileSync.mock.calls[0][1];
       const parsedContent = JSON.parse(writtenContent);
