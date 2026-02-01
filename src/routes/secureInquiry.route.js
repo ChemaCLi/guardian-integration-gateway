@@ -52,6 +52,12 @@ function validateRequest(body) {
     return { valid: false, error: 'message cannot be empty' };
   }
 
+  /** Max message length to limit CPU/memory from sanitizer and downstream (ReDoS defense-in-depth). */
+  const MAX_MESSAGE_LENGTH = 64 * 1024; // 64 KB
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return { valid: false, error: 'message exceeds maximum length' };
+  }
+
   return { valid: true };
 }
 
