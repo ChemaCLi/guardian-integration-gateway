@@ -1,0 +1,7 @@
+schema: spec-driven
+created: 2026-02-01
+workflow: WORKFLOW.md
+quality_assurance:
+  unit_tests_required: true
+  stability_checks_required: true
+  commit_after_stable_changes: true
