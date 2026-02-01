@@ -2,10 +2,8 @@
 
 https://www.loom.com/share/0e89b951e369420f8cc71eab203e7db1
 
-<div style="position: relative; padding-bottom: 56.25%; height: 0;"><iframe src="https://www.loom.com/embed/3497e9c72ba44e52918adad081e42fa9" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
-
 https://www.loom.com/share/3497e9c72ba44e52918adad081e42fa9
-<div style="position: relative; padding-bottom: 56.25%; height: 0;"><iframe src="https://www.loom.com/embed/0e89b951e369420f8cc71eab203e7db1" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+
 
 # Guardian Integration Gateway
 
