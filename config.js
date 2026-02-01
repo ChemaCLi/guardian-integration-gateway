@@ -3,6 +3,9 @@
  * Single source of truth for server and feature settings.
  */
 
+// Load environment variables from .env file (quiet mode to suppress logs)
+require('dotenv').config({ quiet: true });
+
 /**
  * Resolves the HTTP server port from env (default 3000).
  *
