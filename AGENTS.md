@@ -187,4 +187,22 @@ Adapters implement this contract. Use cases receive the port implementation via 
 
 ---
 
+## 7. Layer-Specific AGENTS.md
+
+Each module has its own AGENTS.md with focused context for AI agents:
+
+| Layer | Path | Purpose |
+|-------|------|---------|
+| Routes | `src/routes/AGENTS.md` | HTTP handling, validation, response mapping |
+| Use Cases | `src/usecases/AGENTS.md` | Orchestration, flow, port integration |
+| Ports | `src/ports/AGENTS.md` | Contract definitions (AI, audit DB) |
+| Services | `src/services/AGENTS.md` | Sanitizer, circuit breaker; pure logic |
+| Infrastructure | `src/infrastructure/AGENTS.md` | Adapters, factories, crypto |
+| DB | `src/db/AGENTS.md` | Audit log schema, data storage location |
+| Utils | `src/utils/AGENTS.md` | Shared utilities |
+
+When implementing or modifying a module, read its layer AGENTS.md for module-specific rules and responsibilities.
+
+---
+
 *This document should be updated when architecture or patterns change.*
