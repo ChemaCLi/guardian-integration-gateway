@@ -16,8 +16,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// TODO: mount routes (e.g. secureInquiry) when implemented
-// const secureInquiryRoute = require('./src/routes/secureInquiry.route');
-// app.use(secureInquiryRoute);
+// Secure inquiry route - POST /secure-inquiry
+const secureInquiryRoute = require('./src/routes/secureInquiry.route');
+app.use(secureInquiryRoute);
 
 module.exports = app;
