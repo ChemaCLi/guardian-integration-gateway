@@ -115,20 +115,56 @@ Dependencies flow inward: **Routes → Use cases → Ports ← Adapters**. Use c
 ## Project Structure
 
 ```
-├─ index.js                 # Bootstrap: load config, start Express
-├─ app.js                   # Express setup, CORS, middleware, mount routes
-├─ config.js                # Load env vars (port, NODE_ENV, ENCRYPTION_KEY)
-│
 ├─ src/
-│  ├─ routes/               # HTTP handlers (e.g. secureInquiry.route.js)
-│  ├─ usecases/             # Orchestration (e.g. secureInquiry.usecase.js)
-│  ├─ ports/                # Interfaces (ai.port.js, auditDb.port.js)
-│  ├─ services/             # Domain logic (sanitizer, circuitBreaker)
+│  ├─ index.js                      # Entry point: bootstraps server, loads config, starts listening
+│  ├─ app.js                        # Express app setup: middleware, CORS, route mounting
+│  │
+│  ├─ routes/
+│  │  └─ secureInquiry.route.js     # POST /secure-inquiry handler; validates body, delegates to use case, formats HTTP response
+│  │
+│  ├─ core/
+│  │  ├─ usecases/
+│  │  │  └─ secureInquiry.usecase.js  # Orchestrates the 3-step flow: sanitize → call AI (via port) → audit (via port); integrates circuit breaker
+│  │  └─ ports/
+│  │     ├─ ai.port.js              # Contract for AI providers: generateAnswer(sanitizedMessage) → Promise<string>
+│  │     └─ auditDb.port.js         # Contract for audit storage: saveAudit(entry) → Promise<void>
+│  │
+│  ├─ services/
+│  │  ├─ sanitizer.service.js       # Redacts emails, credit cards, SSNs from message; returns sanitized string
+│  │  └─ circuitBreaker.service.js  # Tracks AI failures; when 3 consecutive failures → circuit opens, returns "Service Busy"
+│  │
 │  ├─ infrastructure/
-│  │  └─ adapters/          # Port implementations (mockAI, jsonAudit), factories
-│  ├─ db/                   # Audit log storage (audit-log.json)
-│  └─ utils/                # Shared utilities (crypto.util.js)
+│  │  ├─ ai/
+│  │  │  ├─ mockAI.adapter.js       # Implements AI port; setTimeout 2s, returns "Generated Answer" (for dev/testing)
+│  │  │  └─ ai.factory.js           # Returns the configured AI adapter instance
+│  │  ├─ db/
+│  │  │  ├─ jsonAudit.adapter.js    # Implements audit port; appends entries to audit-log.json
+│  │  │  └─ db.factory.js           # Returns the configured audit DB adapter instance
+│  │  └─ crypto/
+│  │     └─ crypto.util.js          # encrypt(text) and decrypt(cipher) for original message storage
+│  │
+│  └─ db/
+│     └─ audit-log.json             # Mock database: stores audit log entries (original encrypted, redacted plaintext)
 ```
+
+### File Responsibilities
+
+| File | Layer | Responsibility |
+|------|-------|----------------|
+| `index.js` | Entry | Loads config, creates Express app, starts HTTP server |
+| `app.js` | Entry | Configures Express (CORS, JSON body parser, health route), mounts `/secure-inquiry` |
+| `secureInquiry.route.js` | Route | Parses `userId` and `message` from body; calls use case; returns 200 with `answer` or 503 when circuit breaker open |
+| `secureInquiry.usecase.js` | Core | Runs sanitization → AI call (port) → audit log (port); checks circuit breaker before AI call |
+| `ai.port.js` | Port | Defines interface: `generateAnswer(sanitizedMessage)` → `Promise<string>` |
+| `auditDb.port.js` | Port | Defines interface: `saveAudit({ userId, originalEncrypted, redactedMessage, timestamp })` → `Promise<void>` |
+| `sanitizer.service.js` | Service | Replaces emails, credit cards, SSNs with `<REDACTED: TYPE>` placeholders |
+| `circuitBreaker.service.js` | Service | `isOpen()`, `recordFailure()`, `recordSuccess()`; opens after 3 consecutive failures |
+| `mockAI.adapter.js` | Adapter | Implements AI port; simulates 2s latency; returns static "Generated Answer" |
+| `ai.factory.js` | Factory | Instantiates and returns the AI adapter (currently `mockAI`) |
+| `jsonAudit.adapter.js` | Adapter | Implements audit port; appends to `src/db/audit-log.json` |
+| `db.factory.js` | Factory | Instantiates and returns the audit DB adapter (currently `jsonAudit`) |
+| `crypto.util.js` | Utility | Encrypts/decrypts plaintext for secure storage of original messages |
+| `audit-log.json` | Data | JSON array of audit entries; created on first write if missing |
 
 ---
 
@@ -237,11 +273,13 @@ curl -X POST http://localhost:3000/secure-inquiry \
 
 ## Commands
 
-| Command        | Description                          |
-|----------------|--------------------------------------|
-| `npm install`  | Install dependencies (express, cors) |
-| `npm start`    | Start the server (uses `config.port`) |
-| `npm run dev`  | Same as start (alias for local dev)   |
+| Command           | Description                                  |
+|-------------------|----------------------------------------------|
+| `npm install`     | Install dependencies (express, cors)         |
+| `npm start`       | Start the server (uses `config.port`)        |
+| `npm run dev`     | Same as start (alias for local dev)          |
+| `npm test`        | Run unit tests with Jest                     |
+| `npm run test:watch` | Run unit tests in watch mode              |
 
 ---
 
