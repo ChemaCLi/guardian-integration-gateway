@@ -217,10 +217,102 @@ describe('sanitize', () => {
       expect(result).toBe('');
     });
   });
+
+  // =========================================================================
+  // 6. Large string attacks (resilience / DoS prevention)
+  // =========================================================================
+  describe('large string attacks', () => {
+    const LARGE_TEST_TIMEOUT_MS = 8000;
+
+    it('should handle very long plain string without hanging (no PII)', () => {
+      const length = 100 * 1024; // 100KB
+      const input = 'x'.repeat(length);
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      expect(result).toBe(input);
+      expect(result.length).toBe(length);
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+
+    it('should handle very long string with single PII at the end', () => {
+      const prefixLength = 50 * 1024; // 50KB
+      const prefix = 'a'.repeat(prefixLength);
+      const input = prefix + ' user@example.com';
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      expect(result).toBe(prefix + ' <REDACTED: EMAIL>');
+      expect(result.length).toBe(prefixLength + ' <REDACTED: EMAIL>'.length);
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+
+    it('should handle long string with many SSN occurrences without hanging', () => {
+      const ssn = '123456789';
+      const segment = `before ${ssn} after `;
+      const repeatCount = 500;
+      const input = segment.repeat(repeatCount);
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      const expectedSegment = 'before <REDACTED: SSN> after ';
+      expect(result).toBe(expectedSegment.repeat(repeatCount));
+      expect(result).not.toContain(ssn);
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+
+    it('should handle long string with many email-like substrings without hanging', () => {
+      const safe = 'no-at-sign-here ';
+      const input = safe.repeat(2000);
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      expect(result).toBe(input);
+      expect(result.length).toBe(input.length);
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+
+    it('should handle long digit string (potential ReDoS) without hanging', () => {
+      const length = 20 * 1024; // 20KB of digits
+      const input = '0'.repeat(length);
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      expect(result).toBe(input);
+      expect(result.length).toBe(length);
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+
+    it('should handle large string with mixed PII and redact all correctly', () => {
+      const chunk = 'text user@test.com more 123456789 end. ';
+      const repeatCount = 200;
+      const input = chunk.repeat(repeatCount);
+
+      const start = Date.now();
+      const result = sanitize(input);
+      const elapsed = Date.now() - start;
+
+      const expectedChunk = 'text <REDACTED: EMAIL> more <REDACTED: SSN> end. ';
+      expect(result).toBe(expectedChunk.repeat(repeatCount));
+      expect(result).not.toContain('user@test.com');
+      expect(result).not.toContain('123456789');
+      expect(elapsed).toBeLessThan(LARGE_TEST_TIMEOUT_MS);
+    }, LARGE_TEST_TIMEOUT_MS);
+  });
 });
 
 // =============================================================================
-// 6. Luhn validation helper
+// 7. Luhn validation helper
 // =============================================================================
 describe('isValidLuhn', () => {
   it('should return true for valid Luhn numbers', () => {
